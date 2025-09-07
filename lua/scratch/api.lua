@@ -207,6 +207,33 @@ local function open_scratch_telescope()
   })
 end
 
+local function open_scratch_snacks()
+  local ok, snacks = pcall(require, "snacks")
+  if not ok then
+    utils.log_err("Can't find snacks.nvim, please check your configuration")
+    return
+  end
+
+  -- Check if rg is available
+  if vim.fn.executable("rg") ~= 1 then
+    utils.log_err("Can't find rg executable, please check your configuration")
+    -- Fallback to default snacks behavior
+    snacks.picker.files({
+      cwd = vim.g.scratch_config.scratch_file_dir,
+      prompt = "Scratch Files",
+    })
+    return
+  end
+
+  -- Use rg with sorting by modified time
+  snacks.picker.files({
+    cmd = "rg",
+    args = { "--files", "--sortr", "modified" },
+    cwd = vim.g.scratch_config.scratch_file_dir,
+    prompt = "Scratch Files",
+  })
+end
+
 local function open_scratch_vim_ui()
   local files = get_scratch_files()
   local config_data = vim.g.scratch_config
@@ -239,6 +266,8 @@ local function openScratch()
     open_scratch_telescope()
   elseif config_data.file_picker == "fzflua" then
     open_scratch_fzflua()
+  elseif config_data.file_picker == "snacks" then
+    open_scratch_snacks()
   else
     open_scratch_vim_ui()
   end

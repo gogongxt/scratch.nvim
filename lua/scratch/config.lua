@@ -40,7 +40,7 @@ local utils = require("scratch.utils")
 ---@field scratch_file_dir string
 ---@field filetypes string[]
 ---@field window_cmd  string
----@field file_picker? "fzflua" | "telescope" | nil
+---@field file_picker? "fzflua" | "telescope" | "snacks" | nil
 ---@field filetype_details Scratch.FiletypeDetails
 ---@field localKeys Scratch.LocalKeyConfig[]
 ---@field hooks Scratch.Hook[]

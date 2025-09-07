@@ -26,6 +26,7 @@ return {
   dependencies = {
     {"ibhagwan/fzf-lua"}, --optional: if you want to use fzf-lua to pick scratch file. Recommanded, since it will order the files by modification datetime desc. (require rg)
     {"nvim-telescope/telescope.nvim"}, -- optional: if you want to pick scratch file by telescope
+    {"folke/snacks.nvim"}, -- optional: if you want to pick scratch file by snacks picker
     {"stevearc/dressing.nvim"} -- optional: to have the same UI shown in the GIF
   }
   config = function()
@@ -34,7 +35,8 @@ return {
       window_cmd = "rightbelow vsplit", -- 'vsplit' | 'split' | 'edit' | 'tabedit' | 'rightbelow vsplit'
       use_telescope = true,
       -- fzf-lua is recommanded, since it will order the files by modification datetime desc. (require rg)
-      file_picker = "fzflua", -- "fzflua" | "telescope" | nil
+      -- snacks.nvim is also supported as an alternative picker (require rg)
+      file_picker = "fzflua", -- "fzflua" | "telescope" | "snacks" | nil
       filetypes = { "lua", "js", "sh", "ts" }, -- you can simply put filetype here
       filetype_details = { -- or, you can have more control here
         json = {}, -- empty table is fine
