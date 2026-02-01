@@ -281,7 +281,12 @@ local function open_scratch_snacks(initial_mode, current_mode)
     elseif m == "grep" then
       return { finder = "grep", live = true, supports_live = true }
     else
-      return { finder = "files", live = false, supports_live = false }
+      return {
+        finder = "files",
+        live = false,
+        supports_live = false,
+        matcher = { sort_empty = true },
+      }
     end
   end
 
@@ -294,6 +299,13 @@ local function open_scratch_snacks(initial_mode, current_mode)
     format = "file",
     preview = "file",
     show_empty = true,
+    sort = { fields = { "score:desc", "mtime:desc", "idx" } },
+    transform = function(item)
+      local path = item.cwd and (item.cwd .. slash .. item.file) or item.file
+      if path then
+        item.mtime = utils.get_file_mtime(path)
+      end
+    end,
     confirm = function(picker, item, action)
       require("snacks.picker.actions").jump(picker, item, action)
       if item and item.pos then
@@ -324,13 +336,11 @@ local function open_scratch_snacks(initial_mode, current_mode)
           return
         end
         local name = vim.fn.fnamemodify(item.file, ":t")
-        vim.ui.input({ prompt = "Delete " .. name .. "? (y/n) " }, function(input)
-          if input == "y" then
-            local abs = item.cwd and (item.cwd .. slash .. item.file) or item.file
-            utils.remove_file_and_empty_parents(abs, cwd)
-            picker:find({ refresh = true })
-          end
-        end)
+        if vim.fn.confirm("Delete " .. name .. "?", "&Yes\n&No", 2) == 1 then
+          local abs = item.cwd and (item.cwd .. slash .. item.file) or item.file
+          utils.remove_file_and_empty_parents(abs, cwd)
+          picker:find({ refresh = true })
+        end
       end,
     },
     win = {

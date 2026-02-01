@@ -102,9 +102,30 @@ local function new_popup_window(title)
   }
 end
 
---- Recursively list files with sortable timestamp keys
+--- Get file mtime as epoch seconds.
+--- Tries to parse timestamp from filename first (cheap), falls back to fs_stat.
+---@param filepath string absolute path
+---@return number mtime epoch seconds, 0 if unknown
+local function get_file_mtime(filepath)
+  local name = vim.fn.fnamemodify(filepath, ":t")
+  local yy, mm, dd, hh, mi, ss = name:match("^(%d%d)%-(%d%d)%-(%d%d)_(%d%d)%-(%d%d)%-(%d%d)")
+  if yy then
+    return os.time({
+      year = 2000 + tonumber(yy),
+      month = tonumber(mm),
+      day = tonumber(dd),
+      hour = tonumber(hh),
+      min = tonumber(mi),
+      sec = tonumber(ss),
+    })
+  end
+  local stat = uv.fs_stat(filepath)
+  return stat and stat.mtime.sec or 0
+end
+
+--- Recursively list files with sortable mtime keys
 ---@param dir string
----@return {path: string, sort_key: string}[]
+---@return {path: string, sort_key: number}[]
 local function list_scratch_files(dir)
   local files = {}
   local handle = uv.fs_scandir(dir)
@@ -123,12 +144,7 @@ local function list_scratch_files(dir)
         files[#files + 1] = f
       end
     else
-      local ts = name:match("^(%d%d%-%d%d%-%d%d_%d%d%-%d%d%-%d%d)")
-      if not ts then
-        local stat = uv.fs_stat(full)
-        ts = stat and os.date("%y-%m-%d_%H-%M-%S", stat.mtime.sec) or "00-00-00_00-00-00"
-      end
-      files[#files + 1] = { path = full, sort_key = ts }
+      files[#files + 1] = { path = full, sort_key = get_file_mtime(full) }
     end
   end
   return files
@@ -166,6 +182,7 @@ return {
   getSelectedText = getSelectedText,
   log_err = log_err,
   new_popup_window = new_popup_window,
+  get_file_mtime = get_file_mtime,
   list_scratch_files = list_scratch_files,
   remove_file_and_empty_parents = remove_file_and_empty_parents,
 }

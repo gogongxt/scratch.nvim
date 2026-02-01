@@ -33,8 +33,8 @@ return {
     require("scratch").setup({
       scratch_file_dir = vim.fn.stdpath("cache") .. "/scratch.nvim", -- where your scratch files will be put
       window_cmd = "edit", -- 'vsplit' | 'split' | 'edit' | 'tabedit' | 'rightbelow vsplit'
-      -- fzf-lua is recommended, since it will order the files by modification datetime desc. (require rg)
-      -- snacks.nvim is also supported with files/grep/multi mode toggle (require rg)
+      -- fzf-lua it will order the files by modification datetime desc. (require rg)
+      -- snacks.nvim is also supported with files/grep/multi mode toggle and orders by datetime desc. (require rg)
       file_picker = "fzflua", -- "fzflua" | "telescope" | "snacks" | nil
       filetypes = { "lua", "js", "sh", "ts" }, -- you can simply put filetype here
       filetype_details = { -- or, you can have more control here
