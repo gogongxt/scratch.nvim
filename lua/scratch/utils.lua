@@ -96,7 +96,31 @@ local function new_popup_window(title)
   }
 
   local win = vim.api.nvim_open_win(popup_buf, true, opts)
-  --- Recursively list files with sortable timestamp keys
+  --- Remove a file and clean up empty parent directories up to (not including) stop_dir
+---@param filepath string
+---@param stop_dir string
+local function remove_file_and_empty_parents(filepath, stop_dir)
+  local ok, err = os.remove(filepath)
+  if not ok then
+    vim.notify(
+      "scratch.nvim: failed to delete " .. filepath .. ": " .. tostring(err),
+      vim.log.levels.WARN
+    )
+    return
+  end
+  local dir = vim.fn.fnamemodify(filepath, ":h")
+  while dir ~= stop_dir and dir ~= "/" do
+    local entries = vim.fn.readdir(dir)
+    if entries and #entries == 0 then
+      vim.fn.delete(dir, "d")
+      dir = vim.fn.fnamemodify(dir, ":h")
+    else
+      break
+    end
+  end
+end
+
+--- Recursively list files with sortable timestamp keys
 ---@param dir string
 ---@return {path: string, sort_key: string}[]
 local function list_scratch_files(dir)
@@ -143,4 +167,5 @@ return {
   log_err = log_err,
   new_popup_window = new_popup_window,
   list_scratch_files = list_scratch_files,
+  remove_file_and_empty_parents = remove_file_and_empty_parents,
 }

@@ -1,39 +1,19 @@
 local M = {}
 
-local action_state = require("telescope.actions.state")
-local Path = require("plenary").path
-local config = require("scratch.config")
 local utils = require("scratch.utils")
 
--- TODO: register buffer local key
 function M.delete_item(prompt_bufnr)
-  local _delelte = function(p)
-    local flag = false
-    while p:exists() do
-      local f = os.remove(p.filename)
-      if f then
-        flag = true
-        vim.notify("delete " .. p.filename)
-      else
-        break
-      end
-      p = p:parent()
-    end
-    return flag
-  end
-
+  local action_state = require("telescope.actions.state")
   local picker = action_state.get_current_picker(prompt_bufnr)
   picker:delete_selection(function(s)
     local file_name = s[1]
-    -- INFO: currently just protect configFilePath from being removed
-    if file_name == "configFilePath" then
-      vim.notify("[scratch.nvim] configFilePath cannot be removed", vim.log.levels.WARN)
-      return false
+    local scratch_file_dir = vim.g.scratch_config.scratch_file_dir
+    local full_path = scratch_file_dir .. utils.Slash() .. file_name
+    if vim.fn.filereadable(full_path) == 1 then
+      utils.remove_file_and_empty_parents(full_path, scratch_file_dir)
+      return true
     end
-    local config_data = config.getConfig()
-    local scratch_file_dir = config_data.scratch_file_dir
-    local p = Path:new({ scratch_file_dir, file_name, sep = utils.Slash() })
-    return _delelte(p)
+    return false
   end)
 end
 
