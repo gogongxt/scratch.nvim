@@ -162,13 +162,11 @@ local function select_filetype_then_do(func, opts)
   end)
 end
 
-local function get_scratch_files()
-  local config_data = vim.g.scratch_config
-  local scratch_file_dir = config_data.scratch_file_dir
+local function get_scratch_files(scratch_dir)
+  local entries = utils.list_scratch_files(scratch_dir)
   local res = {}
-  res = utils.listDirectoryRecursive(scratch_file_dir)
-  for i, str in ipairs(res) do
-    res[i] = string.sub(str, string.len(scratch_file_dir) + 2)
+  for _, entry in ipairs(entries) do
+    res[#res + 1] = entry.path:sub(#scratch_dir + 2)
   end
   return res
 end
@@ -192,74 +190,70 @@ local function open_scratch_fzflua()
   local ok, fzf_lua = pcall(require, "fzf-lua")
   if not ok then
     utils.log_err("Can't find fzf-lua, please check your configuration")
+    return
   end
 
   if vim.fn.executable("rg") ~= 1 then
     utils.log_err("Can't find rg executable, please check your configuration")
+    return
   end
-  fzf_lua.files({ cmd = "rg --files --sortr modified " .. vim.g.scratch_config.scratch_file_dir })
+  local cfg = vim.g.scratch_config
+  fzf_lua.files({ cmd = "rg --files --sortr modified " .. vim.fn.shellescape(cfg.scratch_file_dir) })
 end
 
 local function open_scratch_telescope()
-  local config_data = vim.g.scratch_config
-
-  if not telescope_status then
+  local ok, telescope_builtin = pcall(require, "telescope.builtin")
+  if not ok then
     vim.notify(
-      'ScrachOpen needs telescope.nvim or you can just add `"use_telescope: false"` into your config file ot use native select ui'
+      'ScratchOpen needs telescope.nvim or you can set file_picker to "fzflua", "snacks", or nil to use native select ui'
     )
     return
   end
 
+  local config_data = vim.g.scratch_config
+  local keys = config_data.picker_keys or {}
+  local delete_key = keys.delete or "<C-x>"
+
   telescope_builtin.find_files({
     cwd = config_data.scratch_file_dir,
     attach_mappings = function(prompt_bufnr, map)
-      -- TODO: user can customise keybinding
-      map("n", "dd", function()
+      map("n", delete_key, function()
         require("scratch.telescope_actions").delete_item(prompt_bufnr)
       end)
-
       return true
     end,
   })
 end
 
-local function open_scratch_snacks()
+--- Open a snacks picker for scratch files.
+---@param initial_mode "files"|"grep"|"multi"
+---@param current_mode? "files"|"grep"|"multi"
+local function open_scratch_snacks(initial_mode, current_mode)
   local ok, snacks = pcall(require, "snacks")
   if not ok then
     utils.log_err("Can't find snacks.nvim, please check your configuration")
     return
   end
 
-  -- Check if rg is available
-  if vim.fn.executable("rg") ~= 1 then
-    utils.log_err("Can't find rg executable, please check your configuration")
-    -- Fallback to default snacks behavior
-    snacks.picker.files({
-      cwd = vim.g.scratch_config.scratch_file_dir,
-      prompt = "Scratch Files",
-    })
-    return
-  end
-
-  -- Use rg with sorting by modified time
+  -- PLACEHOLDER: full implementation in next commit
   snacks.picker.files({
-    cmd = "rg",
-    args = { "--files", "--sortr", "modified" },
     cwd = vim.g.scratch_config.scratch_file_dir,
-    prompt = "Scratch Files",
   })
 end
 
 local function open_scratch_vim_ui()
-  local files = get_scratch_files()
-  local config_data = vim.g.scratch_config
+  local cfg = vim.g.scratch_config
+  local scratch_file_dir = cfg.scratch_file_dir
+  local files = get_scratch_files(scratch_file_dir)
 
-  local scratch_file_dir = config_data.scratch_file_dir
+  -- Pre-compute modification times for O(n) instead of O(n log n) getftime calls
+  local mtimes = {}
+  for _, f in ipairs(files) do
+    mtimes[f] = vim.fn.getftime(scratch_file_dir .. slash .. f)
+  end
 
-  -- sort the files by their last modified time in descending order
   table.sort(files, function(a, b)
-    return vim.fn.getftime(scratch_file_dir .. slash .. a)
-      > vim.fn.getftime(scratch_file_dir .. slash .. b)
+    return mtimes[a] > mtimes[b]
   end)
 
   vim.ui.select(files, {
@@ -269,8 +263,8 @@ local function open_scratch_vim_ui()
     end,
   }, function(chosenFile)
     if chosenFile then
-      create_and_edit_file(scratch_file_dir .. slash .. chosenFile)
-      register_local_key()
+      create_and_edit_file(scratch_file_dir .. slash .. chosenFile, { config_data = cfg })
+      register_local_key(cfg)
     end
   end)
 end
@@ -283,7 +277,7 @@ local function openScratch()
   elseif config_data.file_picker == "fzflua" then
     open_scratch_fzflua()
   elseif config_data.file_picker == "snacks" then
-    open_scratch_snacks()
+    open_scratch_snacks(config_data.picker_snacks_multi and "multi" or "files")
   else
     open_scratch_vim_ui()
   end
@@ -291,14 +285,31 @@ end
 
 local function fzfScratch()
   local config_data = vim.g.scratch_config
-  if not telescope_status then
-    vim.notify("ScrachOpenFzf needs telescope.nvim")
-    return
-  end
+  local scratch_dir = config_data.scratch_file_dir
 
-  telescope_builtin.live_grep({
-    cwd = config_data.scratch_file_dir,
-  })
+  if config_data.file_picker == "snacks" then
+    open_scratch_snacks("grep")
+  elseif config_data.file_picker == "fzflua" then
+    local ok, fzf_lua = pcall(require, "fzf-lua")
+    if not ok then
+      utils.log_err("Can't find fzf-lua, please check your configuration")
+      return
+    end
+    if vim.fn.executable("rg") ~= 1 then
+      utils.log_err("Can't find rg executable, please check your configuration")
+      return
+    end
+    fzf_lua.live_grep({ cwd = scratch_dir })
+  elseif config_data.file_picker == "telescope" then
+    local ok, telescope_builtin = pcall(require, "telescope.builtin")
+    if not ok then
+      utils.log_err("ScratchOpenFzf needs telescope.nvim")
+      return
+    end
+    telescope_builtin.live_grep({ cwd = scratch_dir })
+  else
+    open_scratch_vim_ui()
+  end
 end
 
 return {
