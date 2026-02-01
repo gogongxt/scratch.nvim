@@ -9,6 +9,11 @@ end
 local slash = Slash()
 local uv = vim.uv or vim.loop
 
+---@return string
+local function genUniqueDirName()
+  return os.date("%y%m%d%H%M%S") .. "-" .. string.format("%04x", math.random(0, 0xFFFF))
+end
+
 --- generate abs filepath
 ---@param filename string
 ---@param parentDir string
@@ -16,7 +21,7 @@ local uv = vim.uv or vim.loop
 ---@return string
 local function genFilepath(filename, parentDir, requiresDir)
   if requiresDir then
-    local dirName = os.date("%y%m%d%H%M%S") .. "-" .. string.format("%04x", math.random(0, 0xFFFF))
+    local dirName = genUniqueDirName()
     vim.fn.mkdir(parentDir .. slash .. dirName, "p")
     return parentDir .. slash .. dirName .. slash .. filename
   else
@@ -177,6 +182,7 @@ end
 return {
   Slash = Slash,
   genFilepath = genFilepath,
+  genUniqueDirName = genUniqueDirName,
   setLocalKeybindings = setLocalKeybindings,
   filenameContains = filenameContains,
   getSelectedText = getSelectedText,

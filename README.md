@@ -43,8 +43,16 @@ return {
           subdir = "project-name" -- group scratch files under specific sub folder
         },
         ["yaml"] = {},
+        py = {
+          subdir = "python-scripts/%" -- group scratch files under path with random generated subdirectory
+          content = { "#!/usr/bin/env python3", "", "" },
+          cursor = {
+            location = { 3, 0 },
+            insert_mode = false,
+          },
+        },
         go = {
-          subdir = "unique", -- isolate each scratch file in its own subdirectory
+          subdir = true, -- isolate each scratch file in its own subdirectory
           filename = "main", -- the filename of the scratch file in the subdirectory
           content = { "package main", "", "func main() {", "  ", "}" },
           cursor = {

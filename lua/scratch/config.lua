@@ -28,8 +28,8 @@ local slash = utils.Slash()
 
 ---@class Scratch.FiletypeDetail
 ---@field filename? string
----@field requireDir? boolean -- DEPRECATED: use subdir = "unique" instead
----@field subdir? string -- subdirectory name, or "unique" for per-file isolation
+---@field requireDir? boolean -- DEPRECATED: use subdir = true instead
+---@field subdir? string|boolean -- subdirectory path, true for unique, "%" in path for unique segment
 ---@field content? string[]
 ---@field cursor? Scratch.Cursor
 --
@@ -80,7 +80,7 @@ local function setup(user_config)
       vim.notify(
         "[scratch.nvim] filetype_details."
           .. ft
-          .. '.requireDir is deprecated. Use subdir = "unique" instead.',
+          .. '.requireDir is deprecated. Use subdir = true | "example-dir/%" instead.',
         vim.log.levels.WARN
       )
     end
@@ -109,14 +109,22 @@ local function get_abs_path(ft, config_data)
     or tostring(os.date("%y-%m-%d_%H-%M-%S")) .. "." .. ft
 
   local parentDir = config_data.scratch_file_dir
-  local subdir = detail and detail.subdir
-  local needs_unique = subdir == "unique" or (detail and detail.requireDir) or false
+  local needs_unique = false
 
-  if subdir and subdir ~= "unique" then
-    parentDir = parentDir .. slash .. subdir
+  if detail then
+    local subdir = detail.subdir
+    if detail.requireDir or subdir == true then
+      needs_unique = true
+    elseif type(subdir) == "string" then
+      if subdir:find("%%") then
+        parentDir = parentDir .. slash .. subdir:gsub("%%", utils.genUniqueDirName())
+      else
+        parentDir = parentDir .. slash .. subdir
+      end
+    end
   end
-  vim.fn.mkdir(parentDir, "p")
 
+  vim.fn.mkdir(parentDir, "p")
   return utils.genFilepath(filename, parentDir, needs_unique)
 end
 
