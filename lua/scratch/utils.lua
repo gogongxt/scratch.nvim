@@ -1,5 +1,3 @@
-local M = {}
-
 local function Slash()
   local slash = "/"
   if vim.fn.has("win32") == 1 then
@@ -68,14 +66,6 @@ local function filenameContains(substr)
   end
 end
 
-local table_length = function(T)
-  local count = 0
-  for _ in pairs(T) do
-    count = count + 1
-  end
-  return count
-end
-
 ---@return string[]
 local function getSelectedText(mark, selection_mode)
   local pos1 = vim.fn.getpos("v")
@@ -133,7 +123,6 @@ end
 
 return {
   Slash = Slash,
-  listDirectoryRecursive = listDirectoryRecursive,
   genFilepath = genFilepath,
   setLocalKeybindings = setLocalKeybindings,
   filenameContains = filenameContains,
