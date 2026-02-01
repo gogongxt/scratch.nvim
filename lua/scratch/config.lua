@@ -100,25 +100,24 @@ local function setup(user_config)
 end
 
 ---@param ft string
+---@param config_data Scratch.Config
 ---@return string
-local function get_abs_path(ft)
-  local config_data = vim.g.scratch_config
+local function get_abs_path(ft, config_data)
+  local detail = config_data.filetype_details[ft]
 
-  local filename = config_data.filetype_details[ft] and config_data.filetype_details[ft].filename
+  local filename = (detail and detail.filename)
     or tostring(os.date("%y-%m-%d_%H-%M-%S")) .. "." .. ft
 
   local parentDir = config_data.scratch_file_dir
-  local subdir = config_data.filetype_details[ft] and config_data.filetype_details[ft].subdir
-  if subdir ~= nil then
+  local subdir = detail and detail.subdir
+  local needs_unique = subdir == "unique" or (detail and detail.requireDir) or false
+
+  if subdir and subdir ~= "unique" then
     parentDir = parentDir .. slash .. subdir
   end
   vim.fn.mkdir(parentDir, "p")
 
-  local require_dir = config_data.filetype_details[ft]
-      and config_data.filetype_details[ft].requireDir
-    or false
-
-  return utils.genFilepath(filename, parentDir, require_dir)
+  return utils.genFilepath(filename, parentDir, needs_unique)
 end
 
 return {
