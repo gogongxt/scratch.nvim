@@ -24,7 +24,7 @@ return {
   "LintaoAmons/scratch.nvim",
   event = "VeryLazy",
   dependencies = {
-    {"ibhagwan/fzf-lua"}, --optional: if you want to use fzf-lua to pick scratch file. Recommanded, since it will order the files by modification datetime desc. (require rg)
+    {"ibhagwan/fzf-lua"}, --optional: if you want to use fzf-lua to pick scratch file. Recommended, since it will order the files by modification datetime desc. (require rg)
     {"nvim-telescope/telescope.nvim"}, -- optional: if you want to pick scratch file by telescope
     {"folke/snacks.nvim"}, -- optional: if you want to pick scratch file by snacks picker
     {"stevearc/dressing.nvim"} -- optional: to have the same UI shown in the GIF
@@ -32,10 +32,9 @@ return {
   config = function()
     require("scratch").setup({
       scratch_file_dir = vim.fn.stdpath("cache") .. "/scratch.nvim", -- where your scratch files will be put
-      window_cmd = "rightbelow vsplit", -- 'vsplit' | 'split' | 'edit' | 'tabedit' | 'rightbelow vsplit'
-      use_telescope = true,
-      -- fzf-lua is recommanded, since it will order the files by modification datetime desc. (require rg)
-      -- snacks.nvim is also supported as an alternative picker (require rg)
+      window_cmd = "edit", -- 'vsplit' | 'split' | 'edit' | 'tabedit' | 'rightbelow vsplit'
+      -- fzf-lua is recommended, since it will order the files by modification datetime desc. (require rg)
+      -- snacks.nvim is also supported with files/grep/multi mode toggle (require rg)
       file_picker = "fzflua", -- "fzflua" | "telescope" | "snacks" | nil
       filetypes = { "lua", "js", "sh", "ts" }, -- you can simply put filetype here
       filetype_details = { -- or, you can have more control here
@@ -45,8 +44,8 @@ return {
         },
         ["yaml"] = {},
         go = {
-          requireDir = true, -- true if each scratch file requires a new directory
-          filename = "main", -- the filename of the scratch file in the new directory
+          subdir = "unique", -- isolate each scratch file in its own subdirectory
+          filename = "main", -- the filename of the scratch file in the subdirectory
           content = { "package main", "", "func main() {", "  ", "}" },
           cursor = {
             location = { 4, 2 },
@@ -66,6 +65,11 @@ return {
           },
         },
       },
+      picker_keys = {
+        delete = "<C-x>",      -- key to delete a scratch file from the picker
+        toggle_mode = "<C-f>", -- toggle between files/grep/multi (snacks only)
+      },
+      picker_snacks_multi = false, -- true to start snacks picker in multi mode
       hooks = {
         {
           callback = function()
@@ -85,11 +89,11 @@ To check your current configuration, simply type `:lua = vim.g.scratch_config`
 
 And if you want to modify the config, for example add a new filetype, just call the `setup` function with your updated config again.
 
-Or you can change the `vim.g.scratch_config` global veriable directly
+Or you can change the `vim.g.scratch_config` global variable directly
 
 </details>
 
-## Commands & Keymapps
+## Commands & Keymaps
 
 All commands are started with `Scratch`, and no default keymappings.
 
@@ -100,7 +104,11 @@ All commands are started with `Scratch`, and no default keymappings.
 | `ScratchOpen`     | Opens an existing scratch file from the `scratch_file_dir`.                                             |
 | `ScratchOpenFzf`  | Uses fuzzy finding to search through the contents of scratch files and open a selected file.            |
 
-Keybinding recommandation:
+### Snacks multi mode
+
+When using the snacks picker, you can set `picker_snacks_multi = true` to open `ScratchOpen` in multi mode, which combines file search and content grep in a single picker. `ScratchOpenFzf` is unaffected by this setting. You can toggle back to the classic file-only view at any time with `<C-f>` (or your custom `picker_keys.toggle_mode` key).
+
+Keybinding recommendation:
 
 ```lua
 vim.keymap.set("n", "<M-C-n>", "<cmd>Scratch<cr>")
