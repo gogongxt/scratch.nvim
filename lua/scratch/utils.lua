@@ -95,7 +95,7 @@ end
 
 ---@param msg string
 local function log_err(msg)
-  vim.notify(msg, vim.log.levels.ERROR, { title = "easy-commands.nvim" })
+  vim.notify(msg, vim.log.levels.ERROR, { title = "scratch.nvim" })
 end
 
 ---@param title string
@@ -107,11 +107,11 @@ local function new_popup_window(title)
     relative = "editor", -- Assuming you want the floating window relative to the editor
     row = 2,
     col = 5,
-    width = vim.api.nvim_get_option("columns") - 10, -- Get the screen width
-    height = vim.api.nvim_get_option("lines") - 5, -- Get the screen height
+    width = vim.o.columns - 10, -- Get the screen width
+    height = vim.o.lines - 5, -- Get the screen height
     style = "minimal",
     border = "single",
-    title = "",
+    title = title,
   }
 
   local win = vim.api.nvim_open_win(popup_buf, true, opts)
