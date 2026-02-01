@@ -1,7 +1,7 @@
 local M = {}
 
 ---@class Scratch.Hook
----@field callback fun(param: table?)
+---@field callback fun(ctx: {abs_path: string, ft: string?, bufnr: integer}?)
 ---@field name? string
 ---@field trigger_point? string
 
