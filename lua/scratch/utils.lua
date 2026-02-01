@@ -7,26 +7,7 @@ local function Slash()
 end
 
 local slash = Slash()
-
--- Recursively list all files in the specified directory
-local function listDirectoryRecursive(directory)
-  local files = {}
-  local dir_list = vim.fn.readdir(directory)
-
-  for _, file in ipairs(dir_list) do
-    local path = directory .. slash .. file
-    if vim.fn.isdirectory(path) == 1 and file ~= "." and file ~= ".." then
-      local subfiles = listDirectoryRecursive(path)
-      for _, subfile in ipairs(subfiles) do
-        files[#files + 1] = subfile
-      end
-    elseif vim.fn.isdirectory(path) == 0 then
-      files[#files + 1] = path
-    end
-  end
-
-  return files
-end
+local uv = vim.uv or vim.loop
 
 --- generate abs filepath
 ---@param filename string
@@ -35,7 +16,7 @@ end
 ---@return string
 local function genFilepath(filename, parentDir, requiresDir)
   if requiresDir then
-    local dirName = vim.trim(vim.fn.system("uuidgen"))
+    local dirName = os.date("%y%m%d%H%M%S") .. "-" .. string.format("%04x", math.random(0, 0xFFFF))
     vim.fn.mkdir(parentDir .. slash .. dirName, "p")
     return parentDir .. slash .. dirName .. slash .. filename
   else
@@ -115,7 +96,39 @@ local function new_popup_window(title)
   }
 
   local win = vim.api.nvim_open_win(popup_buf, true, opts)
-  return {
+  --- Recursively list files with sortable timestamp keys
+---@param dir string
+---@return {path: string, sort_key: string}[]
+local function list_scratch_files(dir)
+  local files = {}
+  local handle = uv.fs_scandir(dir)
+  if not handle then
+    return files
+  end
+  while true do
+    local name, typ = uv.fs_scandir_next(handle)
+    if not name then
+      break
+    end
+    local full = dir .. slash .. name
+    if typ == "directory" then
+      local sub = list_scratch_files(full)
+      for _, f in ipairs(sub) do
+        files[#files + 1] = f
+      end
+    else
+      local ts = name:match("^(%d%d%-%d%d%-%d%d_%d%d%-%d%d%-%d%d)")
+      if not ts then
+        local stat = uv.fs_stat(full)
+        ts = stat and os.date("%y-%m-%d_%H-%M-%S", stat.mtime.sec) or "00-00-00_00-00-00"
+      end
+      files[#files + 1] = { path = full, sort_key = ts }
+    end
+  end
+  return files
+end
+
+return {
     buf = popup_buf,
     win = win,
   }
@@ -129,4 +142,5 @@ return {
   getSelectedText = getSelectedText,
   log_err = log_err,
   new_popup_window = new_popup_window,
+  list_scratch_files = list_scratch_files,
 }
