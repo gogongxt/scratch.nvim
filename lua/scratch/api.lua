@@ -235,10 +235,119 @@ local function open_scratch_snacks(initial_mode, current_mode)
     return
   end
 
-  -- PLACEHOLDER: full implementation in next commit
-  snacks.picker.files({
-    cwd = vim.g.scratch_config.scratch_file_dir,
-  })
+  local cfg = vim.g.scratch_config
+  local keys = cfg.picker_keys or {}
+  local cwd = cfg.scratch_file_dir
+  local mode = current_mode or initial_mode
+
+  local titles =
+    { files = "Scratch [files]", grep = "Scratch [content]", multi = "Scratch [multi]" }
+
+  local function picker_config_for_mode(m)
+    if m == "multi" then
+      return {
+        finder = function(opts, ctx)
+          local files_mod = require("snacks.picker.source.files")
+          local grep_mod = require("snacks.picker.source.grep")
+
+          return function(cb)
+            -- Files: uses filter.search as glob for fd (empty = all files)
+            local files_result = files_mod.files(opts, ctx:clone())
+            if type(files_result) == "function" then
+              files_result(cb)
+            elseif type(files_result) == "table" then
+              for _, item in ipairs(files_result) do
+                cb(item)
+              end
+            end
+
+            -- Grep: uses filter.search as regex for rg (skip if empty)
+            if (ctx.filter.search or "") ~= "" then
+              local grep_result = grep_mod.grep(opts, ctx:clone())
+              if type(grep_result) == "function" then
+                grep_result(cb)
+              elseif type(grep_result) == "table" then
+                for _, item in ipairs(grep_result) do
+                  cb(item)
+                end
+              end
+            end
+          end
+        end,
+        live = true,
+        supports_live = true,
+        matcher = { sort_empty = true, frecency = true },
+      }
+    elseif m == "grep" then
+      return { finder = "grep", live = true, supports_live = true }
+    else
+      return { finder = "files", live = false, supports_live = false }
+    end
+  end
+
+  local mode_cfg = picker_config_for_mode(mode)
+
+  local picker_opts = vim.tbl_extend("force", {
+    source = "scratch",
+    title = titles[mode],
+    cwd = cwd,
+    format = "file",
+    preview = "file",
+    show_empty = true,
+    confirm = function(picker, item, action)
+      require("snacks.picker.actions").jump(picker, item, action)
+      if item and item.pos then
+        vim.fn.setreg("/", picker.input.filter.search or "")
+      end
+    end,
+    actions = {
+      toggle_mode = function(picker)
+        if initial_mode == "multi" then
+          if mode == "multi" then
+            mode = "files"
+          elseif mode == "files" then
+            mode = "grep"
+          else
+            mode = "multi"
+          end
+        else
+          mode = mode == "grep" and "files" or "grep"
+        end
+        picker:close()
+        vim.schedule(function()
+          open_scratch_snacks(initial_mode, mode)
+        end)
+      end,
+      delete_file = function(picker, item)
+        if not item or not item.file then
+          utils.log_err("No file selected to delete")
+          return
+        end
+        local name = vim.fn.fnamemodify(item.file, ":t")
+        vim.ui.input({ prompt = "Delete " .. name .. "? (y/n) " }, function(input)
+          if input == "y" then
+            local abs = item.cwd and (item.cwd .. slash .. item.file) or item.file
+            utils.remove_file_and_empty_parents(abs, cwd)
+            picker:find({ refresh = true })
+          end
+        end)
+      end,
+    },
+    win = {
+      input = {
+        keys = {
+          [keys.delete or "<C-x>"] = { "delete_file", mode = { "n" }, desc = "Delete scratch file" },
+          [keys.toggle_mode or "<C-f>"] = {
+            "toggle_mode",
+            mode = { "i", "n" },
+            desc = "Toggle content/file search",
+          },
+        },
+      },
+    },
+  }, mode_cfg)
+
+  snacks.picker(picker_opts)
 end
 
 local function open_scratch_vim_ui()

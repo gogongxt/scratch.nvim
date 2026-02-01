@@ -88,36 +88,18 @@ local function new_popup_window(title)
     relative = "editor", -- Assuming you want the floating window relative to the editor
     row = 2,
     col = 5,
-    width = vim.o.columns - 10, -- Get the screen width
-    height = vim.o.lines - 5, -- Get the screen height
+    width = vim.o.columns - 10,
+    height = vim.o.lines - 5,
     style = "minimal",
     border = "single",
     title = title,
   }
 
   local win = vim.api.nvim_open_win(popup_buf, true, opts)
-  --- Remove a file and clean up empty parent directories up to (not including) stop_dir
----@param filepath string
----@param stop_dir string
-local function remove_file_and_empty_parents(filepath, stop_dir)
-  local ok, err = os.remove(filepath)
-  if not ok then
-    vim.notify(
-      "scratch.nvim: failed to delete " .. filepath .. ": " .. tostring(err),
-      vim.log.levels.WARN
-    )
-    return
-  end
-  local dir = vim.fn.fnamemodify(filepath, ":h")
-  while dir ~= stop_dir and dir ~= "/" do
-    local entries = vim.fn.readdir(dir)
-    if entries and #entries == 0 then
-      vim.fn.delete(dir, "d")
-      dir = vim.fn.fnamemodify(dir, ":h")
-    else
-      break
-    end
-  end
+  return {
+    buf = popup_buf,
+    win = win,
+  }
 end
 
 --- Recursively list files with sortable timestamp keys
@@ -152,10 +134,28 @@ local function list_scratch_files(dir)
   return files
 end
 
-return {
-    buf = popup_buf,
-    win = win,
-  }
+--- Remove a file and clean up empty parent directories up to (not including) stop_dir
+---@param filepath string
+---@param stop_dir string
+local function remove_file_and_empty_parents(filepath, stop_dir)
+  local ok, err = os.remove(filepath)
+  if not ok then
+    vim.notify(
+      "scratch.nvim: failed to delete " .. filepath .. ": " .. tostring(err),
+      vim.log.levels.WARN
+    )
+    return
+  end
+  local dir = vim.fn.fnamemodify(filepath, ":h")
+  while dir ~= stop_dir and dir ~= "/" do
+    local entries = vim.fn.readdir(dir)
+    if entries and #entries == 0 then
+      vim.fn.delete(dir, "d")
+      dir = vim.fn.fnamemodify(dir, ":h")
+    else
+      break
+    end
+  end
 end
 
 return {
