@@ -1,5 +1,3 @@
-local M = {}
-
 local function Slash()
   local slash = "/"
   if vim.fn.has("win32") == 1 then
@@ -9,25 +7,11 @@ local function Slash()
 end
 
 local slash = Slash()
+local uv = vim.uv or vim.loop
 
--- Recursively list all files in the specified directory
-local function listDirectoryRecursive(directory)
-  local files = {}
-  local dir_list = vim.fn.readdir(directory)
-
-  for _, file in ipairs(dir_list) do
-    local path = directory .. slash .. file
-    if vim.fn.isdirectory(path) == 1 and file ~= "." and file ~= ".." then
-      local subfiles = listDirectoryRecursive(path)
-      for _, subfile in ipairs(subfiles) do
-        files[#files + 1] = subfile
-      end
-    elseif vim.fn.isdirectory(path) == 0 then
-      files[#files + 1] = path
-    end
-  end
-
-  return files
+---@return string
+local function genUniqueDirName()
+  return os.date("%y%m%d%H%M%S") .. "-" .. string.format("%04x", math.random(0, 0xFFFF))
 end
 
 --- generate abs filepath
@@ -37,7 +21,7 @@ end
 ---@return string
 local function genFilepath(filename, parentDir, requiresDir)
   if requiresDir then
-    local dirName = vim.trim(vim.fn.system("uuidgen"))
+    local dirName = genUniqueDirName()
     vim.fn.mkdir(parentDir .. slash .. dirName, "p")
     return parentDir .. slash .. dirName .. slash .. filename
   else
@@ -66,14 +50,6 @@ local function filenameContains(substr)
   else
     return false
   end
-end
-
-local table_length = function(T)
-  local count = 0
-  for _ in pairs(T) do
-    count = count + 1
-  end
-  return count
 end
 
 ---@return string[]
@@ -105,7 +81,7 @@ end
 
 ---@param msg string
 local function log_err(msg)
-  vim.notify(msg, vim.log.levels.ERROR, { title = "easy-commands.nvim" })
+  vim.notify(msg, vim.log.levels.ERROR, { title = "scratch.nvim" })
 end
 
 ---@param title string
@@ -117,11 +93,11 @@ local function new_popup_window(title)
     relative = "editor", -- Assuming you want the floating window relative to the editor
     row = 2,
     col = 5,
-    width = vim.api.nvim_get_option("columns") - 10, -- Get the screen width
-    height = vim.api.nvim_get_option("lines") - 5, -- Get the screen height
+    width = vim.o.columns - 10,
+    height = vim.o.lines - 5,
     style = "minimal",
     border = "single",
-    title = "",
+    title = title,
   }
 
   local win = vim.api.nvim_open_win(popup_buf, true, opts)
@@ -131,13 +107,88 @@ local function new_popup_window(title)
   }
 end
 
+--- Get file mtime as epoch seconds.
+--- Tries to parse timestamp from filename first (cheap), falls back to fs_stat.
+---@param filepath string absolute path
+---@return number mtime epoch seconds, 0 if unknown
+local function get_file_mtime(filepath)
+  local name = vim.fn.fnamemodify(filepath, ":t")
+  local yy, mm, dd, hh, mi, ss = name:match("^(%d%d)%-(%d%d)%-(%d%d)_(%d%d)%-(%d%d)%-(%d%d)")
+  if yy then
+    return os.time({
+      year = 2000 + tonumber(yy),
+      month = tonumber(mm),
+      day = tonumber(dd),
+      hour = tonumber(hh),
+      min = tonumber(mi),
+      sec = tonumber(ss),
+    })
+  end
+  local stat = uv.fs_stat(filepath)
+  return stat and stat.mtime.sec or 0
+end
+
+--- Recursively list files with sortable mtime keys
+---@param dir string
+---@return {path: string, sort_key: number}[]
+local function list_scratch_files(dir)
+  local files = {}
+  local handle = uv.fs_scandir(dir)
+  if not handle then
+    return files
+  end
+  while true do
+    local name, typ = uv.fs_scandir_next(handle)
+    if not name then
+      break
+    end
+    local full = dir .. slash .. name
+    if typ == "directory" then
+      local sub = list_scratch_files(full)
+      for _, f in ipairs(sub) do
+        files[#files + 1] = f
+      end
+    else
+      files[#files + 1] = { path = full, sort_key = get_file_mtime(full) }
+    end
+  end
+  return files
+end
+
+--- Remove a file and clean up empty parent directories up to (not including) stop_dir
+---@param filepath string
+---@param stop_dir string
+local function remove_file_and_empty_parents(filepath, stop_dir)
+  local ok, err = os.remove(filepath)
+  if not ok then
+    vim.notify(
+      "scratch.nvim: failed to delete " .. filepath .. ": " .. tostring(err),
+      vim.log.levels.WARN
+    )
+    return
+  end
+  local dir = vim.fn.fnamemodify(filepath, ":h")
+  while dir ~= stop_dir and dir ~= "/" do
+    local entries = vim.fn.readdir(dir)
+    if entries and #entries == 0 then
+      vim.fn.delete(dir, "d")
+      dir = vim.fn.fnamemodify(dir, ":h")
+    else
+      break
+    end
+  end
+end
+
 return {
   Slash = Slash,
-  listDirectoryRecursive = listDirectoryRecursive,
   genFilepath = genFilepath,
+  genUniqueDirName = genUniqueDirName,
   setLocalKeybindings = setLocalKeybindings,
   filenameContains = filenameContains,
   getSelectedText = getSelectedText,
   log_err = log_err,
   new_popup_window = new_popup_window,
+  get_file_mtime = get_file_mtime,
+  list_scratch_files = list_scratch_files,
+  remove_file_and_empty_parents = remove_file_and_empty_parents,
 }
