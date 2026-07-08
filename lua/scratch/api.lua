@@ -220,6 +220,9 @@ local function open_scratch_telescope()
       map("n", delete_key, function()
         require("scratch.telescope_actions").delete_item(prompt_bufnr)
       end)
+      map("i", delete_key, function()
+        require("scratch.telescope_actions").delete_item(prompt_bufnr)
+      end)
       return true
     end,
   })
@@ -346,12 +349,23 @@ local function open_scratch_snacks(initial_mode, current_mode)
     win = {
       input = {
         keys = {
-          [keys.delete or "<C-x>"] = { "delete_file", mode = { "n" }, desc = "Delete scratch file" },
+          [keys.delete or "<C-x>"] = {
+            "delete_file",
+            mode = { "i", "n" },
+            desc = "Delete scratch file",
+          },
           [keys.toggle_mode or "<C-f>"] = {
             "toggle_mode",
             mode = { "i", "n" },
             desc = "Toggle content/file search",
           },
+          -- Restore list navigation. The built-in "scratch" source binds <C-n>
+          -- to `scratch_new` and some user configs remap <Up>/<Down> to history,
+          -- both of which break moving the selection in this picker.
+          ["<C-n>"] = { "list_down", mode = { "i", "n" } },
+          ["<C-p>"] = { "list_up", mode = { "i", "n" } },
+          ["<Up>"] = { "list_up", mode = { "i", "n" } },
+          ["<Down>"] = { "list_down", mode = { "i", "n" } },
         },
       },
     },
